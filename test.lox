@@ -1,0 +1,8 @@
+class Breakfast {
+  serve(who) {
+    print "Enjoy your " + this.meat + " and " +
+        this.bread + ", " + who + ".";
+  }
+
+  // ...
+}
