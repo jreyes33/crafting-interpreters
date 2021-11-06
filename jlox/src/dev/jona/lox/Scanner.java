@@ -111,7 +111,7 @@ class Scanner {
 
         var text = source.substring(start, current);
         var type = keywords.get(text);
-        if (type == null ) type = IDENTIFIER;
+        if (type == null) type = IDENTIFIER;
         addToken(type);
     }
 
