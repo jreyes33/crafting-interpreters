@@ -45,15 +45,25 @@ public class Lox {
     private static void run(String source) {
         var scanner = new Scanner(source);
         var tokens = scanner.scanTokens();
+        var parser = new Parser(tokens);
+        var expression = parser.parse();
 
-        // For now, just print the tokens.
-        for (var token : tokens) {
-            System.out.println(token);
-        }
+        // Stop if there was a syntax error.
+        if (hadError) return;
+
+        System.out.println(new AstPrinter().print(expression));
     }
 
     static void error(int line, String message) {
         report(line, "", message);
+    }
+
+    static void error(Token token, String message) {
+        if (token.type() == TokenType.EOF) {
+            report(token.line(), " at end", message);
+        } else {
+            report(token.line(), " at '" + token.lexeme() + "'", message);
+        }
     }
 
     private static void report(int line, String where, String message) {
