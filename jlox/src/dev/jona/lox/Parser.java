@@ -1,6 +1,7 @@
 package dev.jona.lox;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static dev.jona.lox.TokenType.*;
 
@@ -27,51 +28,19 @@ class Parser {
     }
 
     private Expr equality() {
-        var expr = comparison();
-
-        while (match(BANG_EQUAL, EQUAL_EQUAL)) {
-            var operator = previous();
-            var right = comparison();
-            expr = new Expr.Binary(expr, operator, right);
-        }
-
-        return expr;
+        return leftAssocBinary(this::comparison, BANG_EQUAL, EQUAL_EQUAL);
     }
 
     private Expr comparison() {
-        var expr = term();
-
-        while (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
-            var operator = previous();
-            var right = term();
-            expr = new Expr.Binary(expr, operator, right);
-        }
-
-        return expr;
+        return leftAssocBinary(this::term, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL);
     }
 
     private Expr term() {
-        var expr = factor();
-
-        while (match(MINUS, PLUS)) {
-            var operator = previous();
-            var right = factor();
-            expr = new Expr.Binary(expr, operator, right);
-        }
-
-        return expr;
+        return leftAssocBinary(this::factor, MINUS, PLUS);
     }
 
     private Expr factor() {
-        var expr = unary();
-
-        while (match(SLASH, STAR)) {
-            var operator = previous();
-            var right = unary();
-            expr = new Expr.Binary(expr, operator, right);
-        }
-
-        return expr;
+        return leftAssocBinary(this::unary, SLASH, STAR);
     }
 
     private Expr unary() {
@@ -100,6 +69,18 @@ class Parser {
         }
 
         throw error(peek(), "Expect expression.");
+    }
+
+    private Expr leftAssocBinary(Supplier<Expr> expressionFn, TokenType... types) {
+        var expr = expressionFn.get();
+
+        while (match(types)) {
+            var operator = previous();
+            var right = expressionFn.get();
+            expr = new Expr.Binary(expr, operator, right);
+        }
+
+        return expr;
     }
 
     private boolean match(TokenType... types) {
