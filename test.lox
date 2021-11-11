@@ -6,3 +6,21 @@ class Breakfast {
 
   // ...
 }
+
+fun multiply(a, b) {
+  return a * b;
+}
+
+fun sub1(a) {
+  return a - 1;
+}
+
+var PI = 3.14159265358979323846264338327950288;
+
+fun circleArea(r) {
+  return PI * r * r;
+}
+
+// These should error.
+var a~os = 90;
+"Oops
