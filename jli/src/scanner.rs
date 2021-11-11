@@ -29,7 +29,7 @@ impl<'s> Scanner<'s> {
             self.scan_token();
         }
         self.tokens
-            .push(Token::new(TokenType::Eof, "".to_string(), None, self.line));
+            .push(Token::new(TokenType::Eof, "".to_string(), self.line));
         &self.tokens
     }
 
@@ -100,7 +100,7 @@ impl<'s> Scanner<'s> {
         let text = &self.source[self.start..self.current];
         let token_type = match self.keyword(text) {
             Some(t) => t,
-            None => TokenType::Identifier,
+            None => TokenType::Identifier(text.to_string()),
         };
         self.add_token(token_type);
     }
@@ -142,7 +142,7 @@ impl<'s> Scanner<'s> {
         }
         // TODO: get rid of unwraps if possible.
         let literal: f64 = self.source[self.start..self.current].parse().unwrap();
-        self.add_token_with_literal(TokenType::Number, Some(Box::new(literal)));
+        self.add_token(TokenType::Number(literal));
     }
 
     fn string(&mut self) {
@@ -160,7 +160,7 @@ impl<'s> Scanner<'s> {
         self.advance();
         // Trim the surrounding quotes.
         let value = self.source[(self.start + 1)..(self.current - 1)].to_string();
-        self.add_token_with_literal(TokenType::String, Some(Box::new(value)));
+        self.add_token(TokenType::LoxString(value));
     }
 
     fn matches(&mut self, expected: char) -> bool {
@@ -211,38 +211,23 @@ impl<'s> Scanner<'s> {
     }
 
     fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_with_literal(token_type, None);
-    }
-
-    // TODO: Use enum variants in Token instead of creating two versions of this function.
-    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Object>) {
         let text = self.source[self.start..self.current].to_string();
-        self.tokens
-            .push(Token::new(token_type, text, literal, self.line));
+        self.tokens.push(Token::new(token_type, text, self.line));
     }
 }
-
-type Object = Box<dyn LoxObject>;
-
-trait LoxObject: fmt::Debug {}
-
-impl LoxObject for f64 {}
-impl LoxObject for String {}
 
 #[derive(Debug)]
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<Object>,
     line: usize,
 }
 
 impl Token {
-    fn new(token_type: TokenType, lexeme: String, literal: Option<Object>, line: usize) -> Self {
+    fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Self {
             token_type,
             lexeme,
-            literal,
             line,
         }
     }
@@ -250,15 +235,10 @@ impl Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?} {} {:?}",
-            self.token_type, self.lexeme, self.literal
-        )
+        write!(f, "{:?} {}", self.token_type, self.lexeme)
     }
 }
 
-// TODO: merge this enum into Token.
 #[rustfmt::skip]
 #[derive(Debug)]
 enum TokenType {
@@ -273,7 +253,7 @@ enum TokenType {
     Less, LessEqual,
 
     // Literals.
-    Identifier, String, Number,
+    Identifier(String), LoxString(String), Number(f64),
 
     // Keywords.
     And, Class, Else, False, Fun, For, If, Nil, Or,
