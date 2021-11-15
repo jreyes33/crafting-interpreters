@@ -1,3 +1,5 @@
+use crate::ast_printer::AstPrinter;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::Result;
 use std::io::Write;
@@ -46,9 +48,17 @@ impl Lox {
         // - passing down an error callback instead of the reference to the whole struct
         let mut scanner = Scanner::new(source, self);
         let tokens = scanner.scan_tokens();
-        // For now, just print the tokens.
-        for token in tokens {
-            println!("{}", token);
+        let mut parser = Parser::new(tokens);
+        match parser.parse() {
+            // Stop if there was a syntax error.
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(65);
+            }
+            Ok(expr) => {
+                let printer = AstPrinter {};
+                println!("{}", printer.print(&*expr));
+            }
         }
     }
 

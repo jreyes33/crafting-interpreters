@@ -1,10 +1,10 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
-    token_type: TokenType,
+    pub token_type: TokenType,
     pub lexeme: String,
-    line: usize,
+    pub line: usize,
 }
 
 impl Token {
@@ -24,7 +24,7 @@ impl fmt::Display for Token {
 }
 
 #[rustfmt::skip]
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen, RightParen, LeftBrace, RightBrace,

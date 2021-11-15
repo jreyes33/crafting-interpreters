@@ -1,4 +1,5 @@
 use crate::token::Token;
+use std::fmt;
 
 pub trait Expr {
     // TODO: don't hardcode Visitor type param.
@@ -9,6 +10,17 @@ pub trait Object: std::fmt::Display {}
 
 impl Object for f64 {}
 impl Object for isize {}
+impl Object for bool {}
+impl Object for String {}
+impl Object for Nil {}
+
+pub struct Nil;
+
+impl fmt::Display for Nil {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "nil")
+    }
+}
 
 pub trait Visitor<O> {
     fn visit_binary_expr(&self, expr: &Binary) -> O;

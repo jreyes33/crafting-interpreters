@@ -5,10 +5,12 @@ use std::{error, result};
 mod ast_printer;
 mod expr;
 mod lox;
+mod parser;
 mod scanner;
 mod token;
 
-type Result<T> = result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+type Error = Box<dyn error::Error + Send + Sync + 'static>;
+type Result<T> = result::Result<T, Error>;
 
 fn main() -> Result<()> {
     if args().count() > 2 {

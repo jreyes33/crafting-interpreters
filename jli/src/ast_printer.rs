@@ -1,7 +1,7 @@
 use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor};
 use crate::token::{Token, TokenType};
 
-struct AstPrinter;
+pub struct AstPrinter;
 
 impl Visitor<String> for AstPrinter {
     fn visit_binary_expr(&self, expr: &Binary) -> String {
@@ -22,7 +22,7 @@ impl Visitor<String> for AstPrinter {
 }
 
 impl AstPrinter {
-    fn print(&self, expr: &dyn Expr) -> String {
+    pub fn print(&self, expr: &dyn Expr) -> String {
         expr.accept(self)
     }
 
