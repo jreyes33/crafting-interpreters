@@ -1,4 +1,5 @@
-use crate::expr::{Binary, Expr, Grouping, Literal, Nil, Unary};
+use crate::expr::{Binary, Expr, Grouping, Literal, Unary};
+use crate::object::Nil;
 use crate::token::TokenType::*;
 use crate::token::{Token, TokenType};
 use crate::{Error, Result};

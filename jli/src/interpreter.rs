@@ -1,4 +1,5 @@
-use crate::expr::{Binary, Expr, Grouping, Literal, Object, Unary, Visitor, VisitorResult};
+use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor, VisitorResult};
+use crate::object::Object;
 use crate::token::TokenType::*;
 use crate::Result;
 use std::rc::Rc;
