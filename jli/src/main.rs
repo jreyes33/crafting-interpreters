@@ -4,6 +4,7 @@ use std::{error, result};
 
 mod ast_printer;
 mod expr;
+mod interpreter;
 mod lox;
 mod parser;
 mod scanner;

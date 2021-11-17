@@ -1,4 +1,4 @@
-use crate::ast_printer::AstPrinter;
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::Result;
@@ -8,6 +8,8 @@ use std::{fs, io, process};
 #[derive(Default)]
 pub struct Lox {
     had_error: bool,
+    had_runtime_error: bool,
+    interpreter: Interpreter,
 }
 
 impl Lox {
@@ -22,6 +24,9 @@ impl Lox {
         if self.had_error {
             // TODO: bubble up error to main and exit there.
             process::exit(65);
+        } else if self.had_runtime_error {
+            // TODO: right now this is never true.
+            process::exit(70);
         }
         Ok(())
     }
@@ -56,8 +61,7 @@ impl Lox {
                 process::exit(65);
             }
             Ok(expr) => {
-                let printer = AstPrinter {};
-                println!("{}", printer.print(&*expr));
+                self.interpreter.interpret(&*expr).unwrap();
             }
         }
     }

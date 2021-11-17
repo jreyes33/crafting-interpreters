@@ -3,6 +3,7 @@ use crate::token::TokenType::*;
 use crate::token::{Token, TokenType};
 use crate::{Error, Result};
 use std::mem::discriminant;
+use std::rc::Rc;
 
 pub struct Parser<'p> {
     tokens: &'p [Token],
@@ -75,16 +76,16 @@ impl<'p> Parser<'p> {
 
     fn primary(&mut self) -> ParserResult {
         if self.matches(&[False]) {
-            Ok(Literal::boxed(Box::new(false)))
+            Ok(Literal::boxed(Rc::new(false)))
         } else if self.matches(&[True]) {
-            Ok(Literal::boxed(Box::new(true)))
+            Ok(Literal::boxed(Rc::new(true)))
         } else if self.matches(&[TokenType::Nil]) {
-            Ok(Literal::boxed(Box::new(Nil)))
+            Ok(Literal::boxed(Rc::new(Nil)))
         // TODO: is there a better way to do this without instantiating dummy variants?
         } else if self.matches(&[Number(Default::default()), LoxString(Default::default())]) {
             match self.previous().token_type {
-                Number(n) => Ok(Literal::boxed(Box::new(n))),
-                LoxString(s) => Ok(Literal::boxed(Box::new(s))),
+                Number(n) => Ok(Literal::boxed(Rc::new(n))),
+                LoxString(s) => Ok(Literal::boxed(Rc::new(s))),
                 _ => Err("not a number or string".into()),
             }
         } else if self.matches(&[LeftParen]) {
