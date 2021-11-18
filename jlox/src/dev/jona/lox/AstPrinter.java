@@ -1,6 +1,8 @@
 package dev.jona.lox;
 
-public class AstPrinter implements Expr.Visitor<String> {
+import java.util.List;
+
+public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     // TODO: this method is only used for testing; delete it.
     public static void main(String[] args) {
         var expression = new Expr.Binary(
@@ -15,6 +17,11 @@ public class AstPrinter implements Expr.Visitor<String> {
 
     String print(Expr expr) {
         return expr.accept(this);
+    }
+
+    @Override
+    public String visitAssignExpr(Expr.Assign expr) {
+        return parenthesize2("=", expr.name().lexeme(), expr.value());
     }
 
     @Override
@@ -38,6 +45,43 @@ public class AstPrinter implements Expr.Visitor<String> {
         return parenthesize(expr.operator().lexeme(), expr.right());
     }
 
+    @Override
+    public String visitVariableExpr(Expr.Variable expr) {
+        return expr.name().lexeme();
+    }
+
+    @Override
+    public String visitBlockStmt(Stmt.Block stmt) {
+        var builder = new StringBuilder();
+        builder.append("(block ");
+
+        for (var statement : stmt.statements()) {
+            builder.append(statement.accept(this));
+        }
+
+        builder.append(")");
+        return builder.toString();
+    }
+
+    @Override
+    public String visitExpressionStmt(Stmt.Expression stmt) {
+        return parenthesize(";", stmt.expression());
+    }
+
+    @Override
+    public String visitPrintStmt(Stmt.Print stmt) {
+        return parenthesize("print", stmt.expression());
+    }
+
+    @Override
+    public String visitVarStmt(Stmt.Var stmt) {
+        if (stmt.initializer() == null) {
+            return parenthesize2("var", stmt.name());
+        }
+
+        return parenthesize2("var", stmt.name(), "=", stmt.initializer());
+    }
+
     private String parenthesize(String name, Expr... exprs) {
         var builder = new StringBuilder();
 
@@ -49,5 +93,32 @@ public class AstPrinter implements Expr.Visitor<String> {
         builder.append(")");
 
         return builder.toString();
+    }
+
+    private String parenthesize2(String name, Object... parts) {
+        var builder = new StringBuilder();
+
+        builder.append("(").append(name);
+        transform(builder, parts);
+        builder.append(")");
+
+        return builder.toString();
+    }
+
+    private void transform(StringBuilder builder, Object... parts) {
+        for (var part : parts) {
+            builder.append(" ");
+            if (part instanceof Expr) {
+                builder.append(((Expr) part).accept(this));
+            } else if (part instanceof Stmt) {
+                builder.append(((Stmt) part).accept(this));
+            } else if (part instanceof Token) {
+                builder.append(((Token) part).lexeme());
+            } else if (part instanceof List) {
+                transform(builder, ((List) part).toArray());
+            } else {
+                builder.append(part);
+            }
+        }
     }
 }
