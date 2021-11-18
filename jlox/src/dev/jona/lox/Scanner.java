@@ -116,10 +116,10 @@ class Scanner {
     }
 
     private void number() {
-        while ((isDigit(peek()))) advance();
+        while (isDigit(peek())) advance();
 
         // Look for a fractional part.
-        if (peek() =='.' && isDigit((peekNext()))) {
+        if (peek() == '.' && isDigit(peekNext())) {
             // Consume the "."
             advance();
 
