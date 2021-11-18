@@ -6,9 +6,11 @@ mod ast_printer;
 mod expr;
 mod interpreter;
 mod lox;
+mod macros;
 mod object;
 mod parser;
 mod scanner;
+mod stmt;
 mod token;
 
 type Error = Box<dyn error::Error + Send + Sync + 'static>;

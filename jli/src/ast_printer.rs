@@ -1,10 +1,16 @@
-use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor, VisitorResult};
+use crate::expr::{
+    Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Visitor, VisitorResult,
+};
 use crate::token::{Token, TokenType};
 use std::rc::Rc;
 
 pub struct AstPrinter;
 
 impl Visitor<VisitorResult> for AstPrinter {
+    fn visit_assign_expr(&self, _expr: &Assign) -> VisitorResult {
+        todo!();
+    }
+
     fn visit_binary_expr(&self, expr: &Binary) -> VisitorResult {
         self.parenthesize(&expr.operator.lexeme, &[&*expr.left, &*expr.right])
     }
@@ -19,6 +25,10 @@ impl Visitor<VisitorResult> for AstPrinter {
 
     fn visit_unary_expr(&self, expr: &Unary) -> VisitorResult {
         self.parenthesize(&expr.operator.lexeme, &[&*expr.right])
+    }
+
+    fn visit_variable_expr(&self, expr: &Variable) -> VisitorResult {
+        Ok(Rc::new(expr.name.lexeme.clone()))
     }
 }
 

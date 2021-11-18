@@ -1,4 +1,6 @@
-use crate::expr::{Binary, Expr, Grouping, Literal, Unary, Visitor, VisitorResult};
+use crate::expr::{
+    Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Visitor, VisitorResult,
+};
 use crate::object::Object;
 use crate::token::TokenType::*;
 use crate::Result;
@@ -20,6 +22,10 @@ impl Interpreter {
 }
 
 impl Visitor<VisitorResult> for Interpreter {
+    fn visit_assign_expr(&self, _expr: &Assign) -> VisitorResult {
+        todo!();
+    }
+
     fn visit_binary_expr(&self, expr: &Binary) -> VisitorResult {
         let left = &*self.evaluate(&*expr.left)?;
         let right = &*self.evaluate(&*expr.right)?;
@@ -53,6 +59,10 @@ impl Visitor<VisitorResult> for Interpreter {
             Minus => Rc::new(right.try_neg()?),
             _ => unreachable!(),
         })
+    }
+
+    fn visit_variable_expr(&self, _expr: &Variable) -> VisitorResult {
+        todo!();
     }
 }
 
