@@ -63,7 +63,7 @@ class Parser {
 
     private Stmt expressionStatement() {
         var expr = expression();
-        consume(SEMICOLON, "Expect ';' after value.");
+        consume(SEMICOLON, "Expect ';' after expression.");
         return new Stmt.Expression(expr);
     }
 
