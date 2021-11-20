@@ -7,37 +7,37 @@ use std::rc::Rc;
 pub struct AstPrinter;
 
 impl Visitor<VisitorResult> for AstPrinter {
-    fn visit_assign_expr(&self, _expr: &Assign) -> VisitorResult {
+    fn visit_assign_expr(&mut self, _expr: &Assign) -> VisitorResult {
         todo!();
     }
 
-    fn visit_binary_expr(&self, expr: &Binary) -> VisitorResult {
+    fn visit_binary_expr(&mut self, expr: &Binary) -> VisitorResult {
         self.parenthesize(&expr.operator.lexeme, &[&*expr.left, &*expr.right])
     }
 
-    fn visit_grouping_expr(&self, expr: &Grouping) -> VisitorResult {
+    fn visit_grouping_expr(&mut self, expr: &Grouping) -> VisitorResult {
         self.parenthesize("group", &[&*expr.expression])
     }
 
-    fn visit_literal_expr(&self, expr: &Literal) -> VisitorResult {
+    fn visit_literal_expr(&mut self, expr: &Literal) -> VisitorResult {
         Ok(Rc::new(format!("{}", expr.value)))
     }
 
-    fn visit_unary_expr(&self, expr: &Unary) -> VisitorResult {
+    fn visit_unary_expr(&mut self, expr: &Unary) -> VisitorResult {
         self.parenthesize(&expr.operator.lexeme, &[&*expr.right])
     }
 
-    fn visit_variable_expr(&self, expr: &Variable) -> VisitorResult {
+    fn visit_variable_expr(&mut self, expr: &Variable) -> VisitorResult {
         Ok(Rc::new(expr.name.lexeme.clone()))
     }
 }
 
 impl AstPrinter {
-    pub fn print(&self, expr: &dyn Expr) -> String {
+    pub fn print(&mut self, expr: &dyn Expr) -> String {
         format!("{}", expr.accept(self).unwrap())
     }
 
-    fn parenthesize(&self, name: &str, exprs: &[&dyn Expr]) -> VisitorResult {
+    fn parenthesize(&mut self, name: &str, exprs: &[&dyn Expr]) -> VisitorResult {
         let mut result = String::new();
         result += "(";
         result += name;
@@ -60,6 +60,6 @@ pub fn run() {
         Token::new(TokenType::Star, "*".to_string(), 1),
         Grouping::boxed(Literal::boxed(Rc::new(45.67))),
     );
-    let printer = AstPrinter {};
+    let mut printer = AstPrinter {};
     println!("{}", printer.print(&*expression));
 }

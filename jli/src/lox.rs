@@ -47,11 +47,10 @@ impl Lox {
     }
 
     fn run(&mut self, source: String) {
-        // TODO: don't pass a mutable Lox reference only to report errors from other places.
-        // Alternatives are:
-        // - making had_error an AtomicBool, getting rid of the Lox struct
-        // - passing down an error callback instead of the reference to the whole struct
-        let mut scanner = Scanner::new(source, self);
+        let mut on_error = |line, message| {
+            self.report(line, "", message);
+        };
+        let mut scanner = Scanner::new(source, &mut on_error);
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
         match parser.parse() {
@@ -60,14 +59,10 @@ impl Lox {
                 eprintln!("{}", e);
                 process::exit(65);
             }
-            Ok(expr) => {
-                self.interpreter.interpret(&*expr).unwrap();
+            Ok(statements) => {
+                self.interpreter.interpret(&statements).unwrap();
             }
         }
-    }
-
-    pub fn error(&mut self, line: usize, message: &str) {
-        self.report(line, "", message);
     }
 
     fn report(&mut self, line: usize, location: &str, message: &str) {

@@ -7,7 +7,7 @@ use std::rc::Rc;
 const OPS_NUMBERS: &str = "Operands must be numbers.";
 const OPS_ADD: &str = "Operands must be two numbers or two strings.";
 
-pub trait Object: fmt::Display + ObjectEq {
+pub trait Object: fmt::Display + fmt::Debug + ObjectEq {
     fn truthy(&self) -> bool {
         true
     }
@@ -156,7 +156,7 @@ impl Object for Nil {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Nil;
 
 impl fmt::Display for Nil {

@@ -1,9 +1,8 @@
 use crate::token::{Token, TokenType};
-use crate::Lox;
 
 pub struct Scanner<'s> {
     source: String,
-    lox: &'s mut Lox,
+    on_error: &'s mut dyn FnMut(usize, &'s str),
     tokens: Vec<Token>,
     start: usize,
     current: usize,
@@ -11,10 +10,10 @@ pub struct Scanner<'s> {
 }
 
 impl<'s> Scanner<'s> {
-    pub fn new(source: String, lox: &'s mut Lox) -> Self {
+    pub fn new(source: String, on_error: &'s mut dyn FnMut(usize, &'s str)) -> Self {
         Self {
             source,
-            lox,
+            on_error,
             tokens: vec![],
             start: 0,
             current: 0,
@@ -86,7 +85,7 @@ impl<'s> Scanner<'s> {
                 } else if self.is_alpha(c) {
                     self.identifier();
                 } else {
-                    self.lox.error(self.line, "Unexpected character.");
+                    (self.on_error)(self.line, "Unexpected character.");
                 }
             }
         }
@@ -153,7 +152,7 @@ impl<'s> Scanner<'s> {
             self.advance();
         }
         if self.is_at_end() {
-            self.lox.error(self.line, "Unterminated string.");
+            (self.on_error)(self.line, "Unterminated string.");
             return;
         }
         // The closing ".

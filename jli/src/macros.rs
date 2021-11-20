@@ -3,17 +3,18 @@ macro_rules! ast {
     ($trait:ident -> $vr:ty [$($s:ident($($f:ident : $t:ty),*)),+$(,)*]) => {
         use paste::paste;
 
-        pub trait $trait {
-            fn accept(&self, visitor: &dyn Visitor<$vr>) -> $vr;
+        pub trait $trait: std::fmt::Debug + crate::object::AsAny {
+            fn accept(&self, visitor: &mut dyn Visitor<$vr>) -> $vr;
         }
 
         pub trait Visitor<O> {
             paste! {
-                $(fn [<visit_ $s:lower _ $trait:lower>](&self, expr: &$s) -> O;)*
+                $(fn [<visit_ $s:lower _ $trait:lower>](&mut self, expr: &$s) -> O;)*
             }
         }
 
         $(
+            #[derive(Debug)]
             pub struct $s {
                 $(pub $f: $t,)*
             }
@@ -29,7 +30,7 @@ macro_rules! ast {
             }
 
             impl $trait for $s {
-                fn accept(&self, visitor: &dyn Visitor<$vr>) -> $vr {
+                fn accept(&self, visitor: &mut dyn Visitor<$vr>) -> $vr {
                     paste! {
                         visitor.[<visit_ $s:lower _ $trait:lower>](self)
                     }

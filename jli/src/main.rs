@@ -3,6 +3,7 @@ use std::env::args;
 use std::{error, result};
 
 mod ast_printer;
+mod environment;
 mod expr;
 mod interpreter;
 mod lox;

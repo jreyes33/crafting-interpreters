@@ -17,3 +17,5 @@ var c = "global c";
 print a;
 print b;
 print c;
+var z;
+z = 1;
