@@ -10,8 +10,10 @@ interface Stmt {
     interface Visitor<R> {
         R visitBlockStmt(Block stmt);
         R visitExpressionStmt(Expression stmt);
+        R visitIfStmt(If stmt);
         R visitPrintStmt(Print stmt);
         R visitVarStmt(Var stmt);
+        R visitWhileStmt(While stmt);
     }
 
     record Block(List<Stmt> statements) implements Stmt {
@@ -28,6 +30,13 @@ interface Stmt {
         }
     }
 
+    record If(Expr condition, Stmt thenBranch, Stmt elseBranch) implements Stmt {
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitIfStmt(this);
+        }
+    }
+
     record Print(Expr expression) implements Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
@@ -39,6 +48,13 @@ interface Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitVarStmt(this);
+        }
+    }
+
+    record While(Expr condition, Stmt body) implements Stmt {
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitWhileStmt(this);
         }
     }
 }

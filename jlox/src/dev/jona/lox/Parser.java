@@ -1,6 +1,7 @@
 package dev.jona.lox;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -37,10 +38,66 @@ class Parser {
     }
 
     private Stmt statement() {
+        if (match(FOR)) return forStatement();
+        if (match(IF)) return ifStatement();
         if (match(PRINT)) return printStatement();
+        if (match(WHILE)) return whileStatement();
         if (match(LEFT_BRACE)) return new Stmt.Block(block());
 
         return expressionStatement();
+    }
+
+    private Stmt forStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+        Stmt initializer;
+        if (match(SEMICOLON)) {
+            initializer = null;
+        } else if (match(VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        Expr condition = null;
+        if (!check(SEMICOLON)) {
+            condition = expression();
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.");
+
+        Expr increment = null;
+        if (!check(RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+        var body = statement();
+
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+        }
+
+        if (condition == null) condition = new Expr.Literal(true);
+        body = new Stmt.While(condition, body);
+
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+
+        return body;
+    }
+
+    private Stmt ifStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'if'.");
+        var condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+        var thenBranch = statement();
+        Stmt elseBranch = null;
+        if (match(ELSE)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
     }
 
     private Stmt printStatement() {
@@ -61,6 +118,15 @@ class Parser {
         return new Stmt.Var(name, initializer);
     }
 
+    private Stmt whileStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'while'.");
+        var condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after condition.");
+        var body = statement();
+
+        return new Stmt.While(condition, body);
+    }
+
     private Stmt expressionStatement() {
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression.");
@@ -79,7 +145,7 @@ class Parser {
     }
 
     private Expr assignment() {
-        var expr = equality();
+        var expr = or();
         if (match(EQUAL)) {
             var equals = previous();
             var value = assignment();
@@ -93,6 +159,14 @@ class Parser {
         }
 
         return expr;
+    }
+
+    private Expr or() {
+        return leftAssocLogical(this::and, OR);
+    }
+
+    private Expr and() {
+        return leftAssocLogical(this::equality, AND);
     }
 
     private Expr expression() {
@@ -154,6 +228,18 @@ class Parser {
             var operator = previous();
             var right = expressionFn.get();
             expr = new Expr.Binary(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr leftAssocLogical(Supplier<Expr> expressionFn, TokenType... types) {
+        var expr = expressionFn.get();
+
+        while (match(types)) {
+            var operator = previous();
+            var right = expressionFn.get();
+            expr = new Expr.Logical(expr, operator, right);
         }
 
         return expr;
