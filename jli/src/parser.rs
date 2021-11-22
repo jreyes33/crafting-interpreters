@@ -1,6 +1,6 @@
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable};
+use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::object::Nil;
-use crate::stmt::{Block, Expression, Print, Stmt, Var};
+use crate::stmt::{Block, Expression, If, Print, Stmt, Var, While};
 use crate::token::TokenType::*;
 use crate::token::{Token, TokenType};
 use crate::{Error, Result};
@@ -46,13 +46,65 @@ impl<'p> Parser<'p> {
     }
 
     fn statement(&mut self) -> StmtResult {
-        if self.matches(&[Print]) {
+        if self.matches(&[For]) {
+            self.for_statement()
+        } else if self.matches(&[If]) {
+            self.if_statement()
+        } else if self.matches(&[Print]) {
             self.print_statement()
+        } else if self.matches(&[While]) {
+            self.while_statement()
         } else if self.matches(&[LeftBrace]) {
             Ok(Block::boxed(self.block()?))
         } else {
             self.expression_statement()
         }
+    }
+
+    fn for_statement(&mut self) -> StmtResult {
+        self.consume(&LeftParen, "Expect '(' after 'for'.")?;
+        let initializer = if self.matches(&[Semicolon]) {
+            None
+        } else if self.matches(&[Var]) {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+        let condition = if self.check(&Semicolon) {
+            Literal::boxed(Rc::new(true))
+        } else {
+            self.expression()?
+        };
+        self.consume(&Semicolon, "Expect ';' after loop condition.")?;
+        let increment = if self.check(&RightParen) {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+        self.consume(&RightParen, "Expect ')' after for clauses.")?;
+        let mut body = self.statement()?;
+
+        if let Some(inc) = increment {
+            body = Block::boxed(vec![body, Expression::boxed(inc)]);
+        }
+        body = While::boxed(condition, body);
+        if let Some(init) = initializer {
+            body = Block::boxed(vec![init, body]);
+        }
+        Ok(body)
+    }
+
+    fn if_statement(&mut self) -> StmtResult {
+        self.consume(&LeftParen, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(&RightParen, "Expect ')' after condition.")?;
+        let then_branch = self.statement()?;
+        let else_branch = if self.matches(&[Else]) {
+            Some(self.statement()?)
+        } else {
+            None
+        };
+        Ok(If::boxed(condition, then_branch, else_branch))
     }
 
     fn print_statement(&mut self) -> StmtResult {
@@ -72,6 +124,14 @@ impl<'p> Parser<'p> {
         Ok(Var::boxed(name, initializer))
     }
 
+    fn while_statement(&mut self) -> StmtResult {
+        self.consume(&LeftParen, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(&RightParen, "Expect ')' after condition.")?;
+        let body = self.statement()?;
+        Ok(While::boxed(condition, body))
+    }
+
     fn expression_statement(&mut self) -> StmtResult {
         let expr = self.expression()?;
         self.consume(&Semicolon, "Expect ';' after expression.")?;
@@ -88,7 +148,7 @@ impl<'p> Parser<'p> {
     }
 
     fn assignment(&mut self) -> ExprResult {
-        let expr = self.equality()?;
+        let expr = self.or()?;
         if self.matches(&[Equal]) {
             let equals = self.previous();
             let value = self.assignment()?;
@@ -96,6 +156,27 @@ impl<'p> Parser<'p> {
                 return Ok(Assign::boxed(v.name.clone(), value));
             }
             self.error(&equals, "Invalid assignment target.");
+        }
+        Ok(expr)
+    }
+
+    // TODO: extract left_assoc_binary and left_assoc_logical helpers.
+    fn or(&mut self) -> ExprResult {
+        let mut expr = self.and()?;
+        while self.matches(&[Or]) {
+            let operator = self.previous();
+            let right = self.and()?;
+            expr = Logical::boxed(expr, operator, right);
+        }
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> ExprResult {
+        let mut expr = self.equality()?;
+        while self.matches(&[And]) {
+            let operator = self.previous();
+            let right = self.equality()?;
+            expr = Logical::boxed(expr, operator, right);
         }
         Ok(expr)
     }

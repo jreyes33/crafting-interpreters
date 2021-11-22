@@ -1,5 +1,5 @@
 use crate::expr::{
-    Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Visitor, VisitorResult,
+    Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable, Visitor, VisitorResult,
 };
 use crate::token::{Token, TokenType};
 use std::rc::Rc;
@@ -21,6 +21,10 @@ impl Visitor<VisitorResult> for AstPrinter {
 
     fn visit_literal_expr(&mut self, expr: &Literal) -> VisitorResult {
         Ok(Rc::new(format!("{}", expr.value)))
+    }
+
+    fn visit_logical_expr(&mut self, _expr: &Logical) -> VisitorResult {
+        todo!();
     }
 
     fn visit_unary_expr(&mut self, expr: &Unary) -> VisitorResult {

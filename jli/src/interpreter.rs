@@ -1,7 +1,7 @@
 use crate::environment::Environment;
-use crate::expr::{self, Assign, Binary, Expr, Grouping, Literal, Unary, Variable};
+use crate::expr::{self, Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::object::{Nil, Object};
-use crate::stmt::{self, Block, Expression, Print, Stmt, Var};
+use crate::stmt::{self, Block, Expression, If, Print, Stmt, Var, While};
 use crate::token::TokenType::*;
 use crate::Result;
 use std::rc::Rc;
@@ -82,6 +82,18 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
         Ok(expr.value.clone())
     }
 
+    fn visit_logical_expr(&mut self, expr: &Logical) -> expr::VisitorResult {
+        let left = self.evaluate(&*expr.left)?;
+        if expr.operator.token_type == Or {
+            if left.truthy() {
+                return Ok(left);
+            }
+        } else if !left.truthy() {
+            return Ok(left);
+        }
+        self.evaluate(&*expr.right)
+    }
+
     fn visit_unary_expr(&mut self, expr: &Unary) -> expr::VisitorResult {
         let right = &*self.evaluate(&*expr.right)?;
         Ok(match expr.operator.token_type {
@@ -110,6 +122,16 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
         Ok(())
     }
 
+    fn visit_if_stmt(&mut self, stmt: &If) -> stmt::VisitorResult {
+        let value = self.evaluate(&*stmt.condition)?;
+        if value.truthy() {
+            self.execute(&*stmt.then_branch)?;
+        } else if let Some(branch) = &stmt.else_branch {
+            self.execute(&**branch)?;
+        }
+        Ok(())
+    }
+
     fn visit_print_stmt(&mut self, stmt: &Print) -> stmt::VisitorResult {
         let value = self.evaluate(&*stmt.expression)?;
         println!("{}", stringify(&*value));
@@ -122,6 +144,15 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
             None => Rc::new(Nil),
         };
         self.environment.define(&stmt.name.lexeme, value);
+        Ok(())
+    }
+
+    fn visit_while_stmt(&mut self, stmt: &While) -> stmt::VisitorResult {
+        let mut value = self.evaluate(&*stmt.condition)?;
+        while value.truthy() {
+            self.execute(&*stmt.body)?;
+            value = self.evaluate(&*stmt.condition)?;
+        }
         Ok(())
     }
 }
