@@ -10,8 +10,10 @@ interface Stmt {
     interface Visitor<R> {
         R visitBlockStmt(Block stmt);
         R visitExpressionStmt(Expression stmt);
+        R visitFunctionStmt(Function stmt);
         R visitIfStmt(If stmt);
         R visitPrintStmt(Print stmt);
+        R visitReturnStmt(Return stmt);
         R visitVarStmt(Var stmt);
         R visitWhileStmt(While stmt);
     }
@@ -30,6 +32,13 @@ interface Stmt {
         }
     }
 
+    record Function(Token name, List<Token> params, List<Stmt> body) implements Stmt {
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitFunctionStmt(this);
+        }
+    }
+
     record If(Expr condition, Stmt thenBranch, Stmt elseBranch) implements Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
@@ -41,6 +50,13 @@ interface Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitPrintStmt(this);
+        }
+    }
+
+    record Return(Token keyword, Expr value) implements Stmt {
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitReturnStmt(this);
         }
     }
 
