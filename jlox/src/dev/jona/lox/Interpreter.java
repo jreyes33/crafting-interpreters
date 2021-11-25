@@ -18,7 +18,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             }
 
             @Override
-            public String  toString() { return "<native fn>"; }
+            public String toString() { return "<native fn>"; }
         });
     }
 
