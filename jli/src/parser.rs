@@ -1,9 +1,10 @@
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::error::Error;
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::object::Nil;
-use crate::stmt::{Block, Expression, If, Print, Stmt, Var, While};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::TokenType::*;
 use crate::token::{Token, TokenType};
-use crate::{Error, Result};
+use crate::Result;
 use std::mem::discriminant;
 use std::rc::Rc;
 
@@ -30,7 +31,9 @@ impl<'p> Parser<'p> {
     }
 
     fn declaration(&mut self) -> StmtResult {
-        let result = if self.matches(&[Var]) {
+        let result = if self.matches(&[Fun]) {
+            self.function("function")
+        } else if self.matches(&[Var]) {
             self.var_declaration()
         } else {
             self.statement()
@@ -52,6 +55,8 @@ impl<'p> Parser<'p> {
             self.if_statement()
         } else if self.matches(&[Print]) {
             self.print_statement()
+        } else if self.matches(&[Return]) {
+            self.return_statement()
         } else if self.matches(&[While]) {
             self.while_statement()
         } else if self.matches(&[LeftBrace]) {
@@ -113,6 +118,17 @@ impl<'p> Parser<'p> {
         Ok(Print::boxed(value))
     }
 
+    fn return_statement(&mut self) -> StmtResult {
+        let keyword = self.previous();
+        let value = if !self.check(&Semicolon) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(&Semicolon, "Expect ';' after return value.")?;
+        Ok(Return::boxed(keyword, value))
+    }
+
     fn var_declaration(&mut self) -> StmtResult {
         let name = self.consume(&Identifier(Default::default()), "Expect variable name.")?;
         let initializer = if self.matches(&[Equal]) {
@@ -136,6 +152,32 @@ impl<'p> Parser<'p> {
         let expr = self.expression()?;
         self.consume(&Semicolon, "Expect ';' after expression.")?;
         Ok(Expression::boxed(expr))
+    }
+
+    fn function(&mut self, kind: &str) -> StmtResult {
+        let name = self.consume(
+            &Identifier(Default::default()),
+            &format!("Expect {} name.", kind),
+        )?;
+        self.consume(&LeftParen, &format!("Expect '(' after {} name.", kind))?;
+        let mut parameters = vec![];
+        if !self.check(&RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    self.error(&self.peek(), "Can't have more than 255 parameters.");
+                }
+                let p = self.consume(&Identifier(Default::default()), "Expect parameter name.")?;
+                parameters.push(p);
+                if !self.matches(&[Comma]) {
+                    break;
+                }
+            }
+        }
+        self.consume(&RightParen, "Expect ')' after parameters.")?;
+        self.consume(&LeftBrace, &format!("Expect '{{' before {} body.", kind))?;
+        // Convert from a Vec<Box> into a Vec<Rc>.
+        let body = self.block()?.into_iter().map(From::from).collect();
+        Ok(Function::boxed(name, parameters, body))
     }
 
     fn block(&mut self) -> Result<Vec<Box<dyn Stmt>>> {
@@ -231,7 +273,36 @@ impl<'p> Parser<'p> {
             let right = self.unary()?;
             return Ok(Unary::boxed(operator, right));
         }
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> ExprResult {
+        let mut expr = self.primary()?;
+        loop {
+            if self.matches(&[LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Box<dyn Expr>) -> ExprResult {
+        let mut arguments = vec![];
+        if !self.check(&RightParen) {
+            loop {
+                if arguments.len() >= 255 {
+                    self.error(&self.peek(), "Can't have more than 255 arguments.");
+                }
+                arguments.push(self.expression()?);
+                if !self.matches(&[Comma]) {
+                    break;
+                }
+            }
+        }
+        let paren = self.consume(&RightParen, "Expect ')' after arguments.")?;
+        Ok(Call::boxed(callee, paren, arguments))
     }
 
     fn primary(&mut self) -> ExprResult {
@@ -305,7 +376,7 @@ impl<'p> Parser<'p> {
         self.tokens[self.current - 1].clone()
     }
 
-    // TODO: create own error type.
+    // TODO: create new error enum variant to include detailed information.
     fn error(&self, token: &Token, message: &str) -> Error {
         let error_message = format!(
             "[line {}] Error at {}: {}",

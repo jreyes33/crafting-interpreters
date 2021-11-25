@@ -1,14 +1,28 @@
+use crate::callable::{Callable, LoxFunction, NativeFunction};
 use crate::environment::Environment;
-use crate::expr::{self, Assign, Binary, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::error::Error;
+use crate::expr::{self, Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::object::{Nil, Object};
-use crate::stmt::{self, Block, Expression, If, Print, Stmt, Var, While};
+use crate::stmt::{self, Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::TokenType::*;
 use crate::Result;
+use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Default)]
 pub struct Interpreter {
+    _globals: Rc<Environment>,
     environment: Rc<Environment>,
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        let globals: Rc<Environment> = Default::default();
+        globals.define("clock", Rc::new(NativeFunction::Clock));
+        Interpreter {
+            _globals: globals.clone(),
+            environment: globals,
+        }
+    }
 }
 
 impl Interpreter {
@@ -27,11 +41,10 @@ impl Interpreter {
         stmt.accept(self)
     }
 
-    fn execute_block(
-        &mut self,
-        statements: &[Box<dyn Stmt>],
-        environment: Rc<Environment>,
-    ) -> Result<()> {
+    pub fn execute_block<B>(&mut self, statements: &[B], environment: Rc<Environment>) -> Result<()>
+    where
+        B: Deref<Target = dyn Stmt>,
+    {
         let previous = self.environment.clone();
         self.environment = environment;
         for statement in statements {
@@ -46,6 +59,25 @@ impl Interpreter {
         }
         self.environment = previous;
         Ok(())
+    }
+
+    fn call_function<F>(
+        &mut self,
+        function: &F,
+        arguments: &[Rc<dyn Object>],
+    ) -> expr::VisitorResult
+    where
+        F: Callable,
+    {
+        if arguments.len() != function.arity() {
+            let message = format!(
+                "Expected {} arguments but got {}.",
+                function.arity(),
+                arguments.len()
+            );
+            return Err(message.into());
+        }
+        function.call(self, arguments)
     }
 }
 
@@ -72,6 +104,23 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
             Star => Rc::new(left.try_mul(right)?),
             _ => unreachable!(),
         })
+    }
+
+    fn visit_call_expr(&mut self, expr: &Call) -> expr::VisitorResult {
+        let callee = self.evaluate(&*expr.callee)?;
+        let mut arguments = vec![];
+        for argument in &expr.arguments {
+            arguments.push(self.evaluate(&**argument)?);
+        }
+        let callee_any = callee.as_any();
+        // Sadly, downcast_ref::<dyn Callable> doesn't work.
+        if let Some(function) = callee_any.downcast_ref::<LoxFunction>() {
+            self.call_function(function, &arguments)
+        } else if let Some(function) = callee_any.downcast_ref::<NativeFunction>() {
+            self.call_function(function, &arguments)
+        } else {
+            Err("Can only call functions and classes.".into())
+        }
     }
 
     fn visit_grouping_expr(&mut self, expr: &Grouping) -> expr::VisitorResult {
@@ -122,6 +171,14 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
         Ok(())
     }
 
+    fn visit_function_stmt(&mut self, stmt: &Function) -> stmt::VisitorResult {
+        // Poor man's Clone.
+        let declaration = Function::new(stmt.name.clone(), stmt.params.clone(), stmt.body.clone());
+        let function = Rc::new(LoxFunction::new(declaration, self.environment.clone()));
+        self.environment.define(&stmt.name.lexeme, function);
+        Ok(())
+    }
+
     fn visit_if_stmt(&mut self, stmt: &If) -> stmt::VisitorResult {
         let value = self.evaluate(&*stmt.condition)?;
         if value.truthy() {
@@ -136,6 +193,14 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
         let value = self.evaluate(&*stmt.expression)?;
         println!("{}", stringify(&*value));
         Ok(())
+    }
+
+    fn visit_return_stmt(&mut self, stmt: &Return) -> stmt::VisitorResult {
+        let value = match &stmt.value {
+            Some(v) => self.evaluate(&**v)?,
+            None => Rc::new(Nil),
+        };
+        Err(Error::Return(value))
     }
 
     fn visit_var_stmt(&mut self, stmt: &Var) -> stmt::VisitorResult {

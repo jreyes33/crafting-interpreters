@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Environment {
     enclosing: Option<Rc<Environment>>,
     // TODO: does this even need interior mutability now that everything is mut?

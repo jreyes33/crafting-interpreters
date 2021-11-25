@@ -1,0 +1,9 @@
+print clock;
+print clock();
+
+fun clock() {
+  return "tick tock";
+}
+
+print clock;
+print clock();

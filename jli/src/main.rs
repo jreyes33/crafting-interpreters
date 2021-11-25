@@ -1,9 +1,11 @@
 use crate::lox::Lox;
 use std::env::args;
-use std::{error, result};
+use std::result;
 
 mod ast_printer;
+mod callable;
 mod environment;
+mod error;
 mod expr;
 mod interpreter;
 mod lox;
@@ -14,8 +16,7 @@ mod scanner;
 mod stmt;
 mod token;
 
-type Error = Box<dyn error::Error + Send + Sync + 'static>;
-type Result<T> = result::Result<T, Error>;
+type Result<T> = result::Result<T, error::Error>;
 
 fn main() -> Result<()> {
     if args().count() > 2 {

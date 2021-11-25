@@ -24,7 +24,7 @@ macro_rules! ast {
                     Box::new(Self::new($($f,)*))
                 }
 
-                fn new($($f: $t,)*) -> Self {
+                pub fn new($($f: $t,)*) -> Self {
                     Self { $($f,)* }
                 }
             }
