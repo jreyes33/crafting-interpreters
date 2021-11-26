@@ -19,6 +19,10 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
         return expr.accept(this);
     }
 
+    String print(Stmt stmt) {
+        return stmt.accept(this);
+    }
+
     @Override
     public String visitAssignExpr(Expr.Assign expr) {
         return parenthesize2("=", expr.name().lexeme(), expr.value());

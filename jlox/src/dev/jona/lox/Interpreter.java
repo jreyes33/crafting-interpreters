@@ -8,7 +8,11 @@ import java.util.Map;
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final Environment globals = new Environment();
     private Environment environment = globals;
-    private final Map<Expr, Integer> locals = new HashMap<>();
+    // The book declares this as a Map<Expr, Integer> and it works because its
+    // Exprs are POJOs, not records. Since a record's hashCode is implemented as
+    // a function of its components instead of its identity, we need to use the
+    // result of calling System.identityHashCode on our Exprs as keys.
+    private final Map<Integer, Integer> locals = new HashMap<>();
 
     Interpreter() {
         globals.define("clock", new LoxCallable() {
@@ -36,14 +40,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     void resolve(Expr expr, int depth) {
-        locals.put(expr, depth);
+        locals.put(System.identityHashCode(expr), depth);
     }
 
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         var value = evaluate(expr.value());
 
-        var distance = locals.get(expr);
+        var distance = locals.get(System.identityHashCode(expr));
         if (distance != null) {
             environment.assignAt(distance, expr.name(), value);
         } else {
@@ -166,7 +170,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     private Object lookUpVariable(Token name, Expr expr) {
-        var distance = locals.get(expr);
+        var distance = locals.get(System.identityHashCode(expr));
         if (distance != null) {
             return environment.getAt(distance, name.lexeme());
         } else {
