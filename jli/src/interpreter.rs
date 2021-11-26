@@ -4,14 +4,17 @@ use crate::error::Error;
 use crate::expr::{self, Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::object::{Nil, Object};
 use crate::stmt::{self, Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::token::Token;
 use crate::token::TokenType::*;
 use crate::Result;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct Interpreter {
-    _globals: Rc<Environment>,
+    globals: Rc<Environment>,
     environment: Rc<Environment>,
+    locals: HashMap<usize, usize>,
 }
 
 impl Default for Interpreter {
@@ -19,8 +22,9 @@ impl Default for Interpreter {
         let globals: Rc<Environment> = Default::default();
         globals.define("clock", Rc::new(NativeFunction::Clock));
         Interpreter {
-            _globals: globals.clone(),
+            globals: globals.clone(),
             environment: globals,
+            locals: HashMap::new(),
         }
     }
 }
@@ -33,17 +37,14 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&mut self, expr: &dyn Expr) -> expr::VisitorResult {
-        expr.accept(self)
+    pub fn resolve(&mut self, expr: &dyn Expr, depth: usize) {
+        let expr_ptr = expr as *const dyn Expr as *const () as usize;
+        self.locals.insert(expr_ptr, depth);
     }
 
-    fn execute(&mut self, stmt: &dyn Stmt) -> Result<()> {
-        stmt.accept(self)
-    }
-
-    pub fn execute_block<B>(&mut self, statements: &[B], environment: Rc<Environment>) -> Result<()>
+    pub fn execute_block<S>(&mut self, statements: &[S], environment: Rc<Environment>) -> Result<()>
     where
-        B: Deref<Target = dyn Stmt>,
+        S: Deref<Target = dyn Stmt>,
     {
         let previous = self.environment.clone();
         self.environment = environment;
@@ -59,6 +60,14 @@ impl Interpreter {
         }
         self.environment = previous;
         Ok(())
+    }
+
+    fn evaluate(&mut self, expr: &dyn Expr) -> expr::VisitorResult {
+        expr.accept(self)
+    }
+
+    fn execute(&mut self, stmt: &dyn Stmt) -> Result<()> {
+        stmt.accept(self)
     }
 
     fn call_function<F>(
@@ -79,12 +88,27 @@ impl Interpreter {
         }
         function.call(self, arguments)
     }
+
+    fn look_up_variable(&self, name: &Token, expr: &dyn Expr) -> expr::VisitorResult {
+        let expr_ptr = expr as *const dyn Expr as *const () as usize;
+        if let Some(distance) = self.locals.get(&expr_ptr) {
+            self.environment.get_at(*distance, &name.lexeme)
+        } else {
+            self.globals.get(name)
+        }
+    }
 }
 
 impl expr::Visitor<expr::VisitorResult> for Interpreter {
     fn visit_assign_expr(&mut self, expr: &Assign) -> expr::VisitorResult {
         let value = self.evaluate(&*expr.value)?;
-        self.environment.assign(&expr.name, value.clone())?;
+        let expr_ptr = expr as *const dyn Expr as *const () as usize;
+        if let Some(distance) = self.locals.get(&expr_ptr) {
+            self.environment
+                .assign_at(*distance, &expr.name, value.clone());
+        } else {
+            self.globals.assign(&expr.name, value.clone())?;
+        }
         Ok(value)
     }
 
@@ -153,7 +177,7 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
     }
 
     fn visit_variable_expr(&mut self, expr: &Variable) -> expr::VisitorResult {
-        self.environment.get(&expr.name)
+        self.look_up_variable(&expr.name, expr)
     }
 }
 

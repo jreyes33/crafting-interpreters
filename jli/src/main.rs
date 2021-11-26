@@ -12,6 +12,7 @@ mod lox;
 mod macros;
 mod object;
 mod parser;
+mod resolver;
 mod scanner;
 mod stmt;
 mod token;

@@ -1,15 +1,18 @@
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 use crate::Result;
+use std::cell::RefCell;
 use std::io::Write;
+use std::rc::Rc;
 use std::{fs, io, process};
 
 #[derive(Default)]
 pub struct Lox {
     had_error: bool,
     had_runtime_error: bool,
-    interpreter: Interpreter,
+    interpreter: Rc<RefCell<Interpreter>>,
 }
 
 impl Lox {
@@ -60,7 +63,12 @@ impl Lox {
                 process::exit(65);
             }
             Ok(statements) => {
-                self.interpreter.interpret(&statements).unwrap();
+                let mut resolver = Resolver::new(self.interpreter.clone());
+                resolver.resolve(&statements).unwrap();
+                self.interpreter
+                    .borrow_mut()
+                    .interpret(&statements)
+                    .unwrap();
             }
         }
     }
