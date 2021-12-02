@@ -1,0 +1,21 @@
+class Pokemon {
+  init() {
+    this.name = "MissingNo.";
+  }
+
+  sayName() {
+    print this.name;
+  }
+}
+
+var charmander = Pokemon();
+var method = charmander.sayName;
+method(); // "MissingNo."
+charmander.name = "Charmander";
+method(); // "Charmander"
+
+var ditto = Pokemon();
+ditto.name = "Ditto";
+ditto.sayName(); // "Ditto"
+ditto.sayName = charmander.sayName;
+ditto.sayName(); // "Charmander"
