@@ -392,8 +392,8 @@ class Parser {
                 case RETURN:
                     return;
             }
-        }
 
-        advance();
+            advance();
+        }
     }
 }
