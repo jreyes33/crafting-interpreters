@@ -8,6 +8,7 @@ pub type VisitorResult = Result<()>;
 
 ast!(Stmt -> VisitorResult [
     Block(statements: Vec<Box<dyn Stmt>>),
+    Class(name: Token, methods: Vec<Rc<Function>>),
     Expression(expression: Box<dyn Expr>),
     Function(name: Token, params: Vec<Token>, body: Vec<Rc<dyn Stmt>>),
     If(condition: Box<dyn Expr>, then_branch: Box<dyn Stmt>, else_branch: Option<Box<dyn Stmt>>),

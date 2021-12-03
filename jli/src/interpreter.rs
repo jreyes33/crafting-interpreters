@@ -1,9 +1,13 @@
 use crate::callable::{Callable, LoxFunction, NativeFunction};
+use crate::class::Class as LoxClass;
 use crate::environment::Environment;
 use crate::error::Error;
-use crate::expr::{self, Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{
+    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+};
+use crate::instance::{Instance, InstanceGet};
 use crate::object::{Nil, Object};
-use crate::stmt::{self, Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::stmt::{self, Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::token::TokenType::*;
 use crate::Result;
@@ -112,6 +116,15 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
         Ok(value)
     }
 
+    fn visit_get_expr(&mut self, expr: &Get) -> expr::VisitorResult {
+        let object = self.evaluate(&*expr.object)?;
+        if let Ok(instance) = Rc::downcast::<Instance>(object.as_any_rc()) {
+            instance.get(&expr.name)
+        } else {
+            Err("Only instances have properties.".into())
+        }
+    }
+
     fn visit_binary_expr(&mut self, expr: &Binary) -> expr::VisitorResult {
         let left = &*self.evaluate(&*expr.left)?;
         let right = &*self.evaluate(&*expr.right)?;
@@ -142,6 +155,8 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
             self.call_function(function, &arguments)
         } else if let Some(function) = callee_any.downcast_ref::<NativeFunction>() {
             self.call_function(function, &arguments)
+        } else if let Ok(function) = Rc::downcast::<LoxClass>(callee.as_any_rc()) {
+            self.call_function(&function, &arguments)
         } else {
             Err("Can only call functions and classes.".into())
         }
@@ -167,6 +182,21 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
         self.evaluate(&*expr.right)
     }
 
+    fn visit_set_expr(&mut self, expr: &Set) -> expr::VisitorResult {
+        let object = self.evaluate(&*expr.object)?;
+        if let Some(instance) = (*object).as_any().downcast_ref::<Instance>() {
+            let value = self.evaluate(&*expr.value)?;
+            instance.set(&expr.name, value.clone());
+            Ok(value)
+        } else {
+            Err("Only instances have fields.".into())
+        }
+    }
+
+    fn visit_this_expr(&mut self, expr: &This) -> expr::VisitorResult {
+        self.look_up_variable(&expr.keyword, expr)
+    }
+
     fn visit_unary_expr(&mut self, expr: &Unary) -> expr::VisitorResult {
         let right = &*self.evaluate(&*expr.right)?;
         Ok(match expr.operator.token_type {
@@ -190,6 +220,22 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
         Ok(())
     }
 
+    fn visit_class_stmt(&mut self, stmt: &Class) -> stmt::VisitorResult {
+        self.environment.define(&stmt.name.lexeme, Rc::new(Nil));
+        let mut methods = HashMap::new();
+        for method in &stmt.methods {
+            let function = LoxFunction::new(
+                method.clone(),
+                self.environment.clone(),
+                method.name.lexeme == "init",
+            );
+            methods.insert(method.name.lexeme.clone(), Rc::new(function));
+        }
+        let class = LoxClass::new(stmt.name.lexeme.clone(), methods);
+        self.environment.assign(&stmt.name, Rc::new(class))?;
+        Ok(())
+    }
+
     fn visit_expression_stmt(&mut self, stmt: &Expression) -> stmt::VisitorResult {
         self.evaluate(&*stmt.expression)?;
         Ok(())
@@ -198,7 +244,11 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
     fn visit_function_stmt(&mut self, stmt: &Function) -> stmt::VisitorResult {
         // Poor man's Clone.
         let declaration = Function::new(stmt.name.clone(), stmt.params.clone(), stmt.body.clone());
-        let function = Rc::new(LoxFunction::new(declaration, self.environment.clone()));
+        let function = Rc::new(LoxFunction::new(
+            Rc::new(declaration),
+            self.environment.clone(),
+            false,
+        ));
         self.environment.define(&stmt.name.lexeme, function);
         Ok(())
     }

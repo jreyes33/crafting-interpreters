@@ -1,7 +1,9 @@
-use crate::expr::{self, Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{
+    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+};
 use crate::interpreter::Interpreter;
 use crate::object::Nil;
-use crate::stmt::{self, Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::stmt::{self, Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::Result;
 use std::cell::RefCell;
@@ -13,13 +15,22 @@ pub struct Resolver {
     interpreter: Rc<RefCell<Interpreter>>,
     scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionType,
+    current_class: ClassType,
     nil: Rc<Nil>,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 enum FunctionType {
     None,
     Function,
+    Initializer,
+    Method,
+}
+
+#[derive(Copy, Clone)]
+enum ClassType {
+    None,
+    Class,
 }
 
 impl Resolver {
@@ -28,6 +39,7 @@ impl Resolver {
             interpreter,
             scopes: vec![],
             current_function: FunctionType::None,
+            current_class: ClassType::None,
             nil: Rc::new(Nil),
         }
     }
@@ -51,7 +63,7 @@ impl Resolver {
     }
 
     fn resolve_function(&mut self, function: &Function, function_type: FunctionType) -> Result<()> {
-        let enclosing_function = self.current_function.clone();
+        let enclosing_function = self.current_function;
         self.current_function = function_type;
         self.begin_scope();
         for param in &function.params {
@@ -121,6 +133,11 @@ impl expr::Visitor<expr::VisitorResult> for Resolver {
         Ok(self.nil.clone())
     }
 
+    fn visit_get_expr(&mut self, expr: &Get) -> expr::VisitorResult {
+        self.resolve_expr(&*expr.object)?;
+        Ok(self.nil.clone())
+    }
+
     fn visit_grouping_expr(&mut self, expr: &Grouping) -> expr::VisitorResult {
         self.resolve_expr(&*expr.expression)?;
         Ok(self.nil.clone())
@@ -133,6 +150,20 @@ impl expr::Visitor<expr::VisitorResult> for Resolver {
     fn visit_logical_expr(&mut self, expr: &Logical) -> expr::VisitorResult {
         self.resolve_expr(&*expr.left)?;
         self.resolve_expr(&*expr.right)?;
+        Ok(self.nil.clone())
+    }
+
+    fn visit_set_expr(&mut self, expr: &Set) -> expr::VisitorResult {
+        self.resolve_expr(&*expr.value)?;
+        self.resolve_expr(&*expr.object)?;
+        Ok(self.nil.clone())
+    }
+
+    fn visit_this_expr(&mut self, expr: &This) -> expr::VisitorResult {
+        if let ClassType::None = self.current_class {
+            return Err("Can't use 'this' outside of a class.".into());
+        }
+        self.resolve_local(expr, &expr.keyword);
         Ok(self.nil.clone())
     }
 
@@ -157,6 +188,29 @@ impl stmt::Visitor<stmt::VisitorResult> for Resolver {
         self.begin_scope();
         self.resolve(&stmt.statements)?;
         self.end_scope();
+        Ok(())
+    }
+
+    fn visit_class_stmt(&mut self, stmt: &Class) -> stmt::VisitorResult {
+        let enclosing_class = self.current_class;
+        self.current_class = ClassType::Class;
+        self.declare(&stmt.name)?;
+        self.define(&stmt.name);
+        self.begin_scope();
+        self.scopes
+            .last_mut()
+            .expect("Just added a scope")
+            .insert("this".into(), true);
+        for method in &stmt.methods {
+            let declaration = if method.name.lexeme == "init" {
+                FunctionType::Initializer
+            } else {
+                FunctionType::Method
+            };
+            self.resolve_function(method, declaration)?;
+        }
+        self.end_scope();
+        self.current_class = enclosing_class;
         Ok(())
     }
 
@@ -188,6 +242,9 @@ impl stmt::Visitor<stmt::VisitorResult> for Resolver {
             return Err("Can't return from top-level code.".into());
         }
         if let Some(v) = &stmt.value {
+            if let FunctionType::Initializer = self.current_function {
+                return Err("Can't return a value from an initializer.".into());
+            }
             self.resolve_expr(&**v)?;
         }
         Ok(())

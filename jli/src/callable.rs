@@ -1,5 +1,6 @@
 use crate::environment::Environment;
 use crate::error::Error;
+use crate::instance::Instance;
 use crate::interpreter::Interpreter;
 use crate::object::{Nil, Object};
 use crate::stmt::Function;
@@ -7,7 +8,7 @@ use crate::Result;
 use std::fmt;
 use std::rc::Rc;
 
-type CallResult = Result<Rc<dyn Object>>;
+pub type CallResult = Result<Rc<dyn Object>>;
 
 pub trait Callable: Object {
     fn arity(&self) -> usize;
@@ -16,16 +17,28 @@ pub trait Callable: Object {
 
 #[derive(Debug)]
 pub struct LoxFunction {
-    declaration: Function,
+    declaration: Rc<Function>,
     closure: Rc<Environment>,
+    is_initializer: bool,
 }
 
 impl LoxFunction {
-    pub fn new(declaration: Function, closure: Rc<Environment>) -> Self {
+    pub fn new(declaration: Rc<Function>, closure: Rc<Environment>, is_initializer: bool) -> Self {
         Self {
             declaration,
             closure,
+            is_initializer,
         }
+    }
+
+    pub fn bind(&self, instance: Rc<Instance>) -> Self {
+        let environment = Environment::new_with_enclosing(self.closure.clone());
+        environment.define("this", instance);
+        Self::new(
+            self.declaration.clone(),
+            Rc::new(environment),
+            self.is_initializer,
+        )
     }
 }
 
@@ -55,15 +68,22 @@ impl Callable for LoxFunction {
         }
         let result = interpreter.execute_block(&self.declaration.body, environment);
         match result {
-            Ok(_) => (),
-            Err(e) => {
-                return match e {
-                    Error::Return(v) => Ok(v),
-                    _ => Err(e),
+            Ok(()) => {
+                if self.is_initializer {
+                    self.closure.get_at(0, "this")
+                } else {
+                    Ok(Rc::new(Nil))
                 }
             }
+            Err(Error::Return(v)) => {
+                if self.is_initializer {
+                    self.closure.get_at(0, "this")
+                } else {
+                    Ok(v)
+                }
+            }
+            Err(e) => Err(e),
         }
-        Ok(Rc::new(Nil))
     }
 }
 

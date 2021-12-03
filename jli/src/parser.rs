@@ -1,7 +1,9 @@
 use crate::error::Error;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{
+    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+};
 use crate::object::Nil;
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::TokenType::*;
 use crate::token::{Token, TokenType};
 use crate::Result;
@@ -31,8 +33,10 @@ impl<'p> Parser<'p> {
     }
 
     fn declaration(&mut self) -> StmtResult {
-        let result = if self.matches(&[Fun]) {
-            self.function("function")
+        let result: StmtResult = if self.matches(&[Class]) {
+            self.class_declaration()
+        } else if self.matches(&[Fun]) {
+            Ok(Box::new(self.function("function")?))
         } else if self.matches(&[Var]) {
             self.var_declaration()
         } else {
@@ -41,11 +45,21 @@ impl<'p> Parser<'p> {
         match result {
             Ok(s) => Ok(s),
             Err(e) => {
-                // TODO: test if this is working;
                 self.synchronize();
                 Err(e)
             }
         }
+    }
+
+    fn class_declaration(&mut self) -> StmtResult {
+        let name = self.consume(&Identifier(Default::default()), "Expect class name.")?;
+        self.consume(&LeftBrace, "Expect '{' before class body.")?;
+        let mut methods = vec![];
+        while !self.check(&RightBrace) && !self.is_at_end() {
+            methods.push(Rc::new(self.function("method")?));
+        }
+        self.consume(&RightBrace, "Expect '}' after class body.")?;
+        Ok(Class::boxed(name, methods))
     }
 
     fn statement(&mut self) -> StmtResult {
@@ -154,7 +168,7 @@ impl<'p> Parser<'p> {
         Ok(Expression::boxed(expr))
     }
 
-    fn function(&mut self, kind: &str) -> StmtResult {
+    fn function(&mut self, kind: &str) -> Result<Function> {
         let name = self.consume(
             &Identifier(Default::default()),
             &format!("Expect {} name.", kind),
@@ -177,7 +191,7 @@ impl<'p> Parser<'p> {
         self.consume(&LeftBrace, &format!("Expect '{{' before {} body.", kind))?;
         // Convert from a Vec<Box> into a Vec<Rc>.
         let body = self.block()?.into_iter().map(From::from).collect();
-        Ok(Function::boxed(name, parameters, body))
+        Ok(Function::new(name, parameters, body))
     }
 
     fn block(&mut self) -> Result<Vec<Box<dyn Stmt>>> {
@@ -194,8 +208,11 @@ impl<'p> Parser<'p> {
         if self.matches(&[Equal]) {
             let equals = self.previous();
             let value = self.assignment()?;
-            if let Some(v) = (*expr).as_any().downcast_ref::<Variable>() {
+            let expr_any = (*expr).as_any();
+            if let Some(v) = expr_any.downcast_ref::<Variable>() {
                 return Ok(Assign::boxed(v.name.clone(), value));
+            } else if let Some(g) = expr_any.downcast_ref::<Get>() {
+                return Ok(Set::boxed(g.object.clone(), g.name.clone(), value));
             }
             self.error(&equals, "Invalid assignment target.");
         }
@@ -281,6 +298,12 @@ impl<'p> Parser<'p> {
         loop {
             if self.matches(&[LeftParen]) {
                 expr = self.finish_call(expr)?;
+            } else if self.matches(&[Dot]) {
+                let name = self.consume(
+                    &Identifier(Default::default()),
+                    "Expect property name after '.'.",
+                )?;
+                expr = Get::boxed(expr.into(), name);
             } else {
                 break;
             }
@@ -319,6 +342,8 @@ impl<'p> Parser<'p> {
                 LoxString(s) => Ok(Literal::boxed(Rc::new(s))),
                 _ => Err("not a number or string".into()),
             }
+        } else if self.matches(&[This]) {
+            Ok(This::boxed(self.previous()))
         } else if self.matches(&[Identifier(Default::default())]) {
             Ok(Variable::boxed(self.previous()))
         } else if self.matches(&[LeftParen]) {
@@ -396,7 +421,7 @@ impl<'p> Parser<'p> {
                 Class | Fun | Var | For | If | While | Print | Return => return,
                 _ => (),
             }
+            self.advance();
         }
-        self.advance();
     }
 }

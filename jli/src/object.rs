@@ -51,6 +51,7 @@ pub trait Object: fmt::Display + fmt::Debug + ObjectEq {
 
 pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
+    fn as_any_rc(self: Rc<Self>) -> Rc<dyn Any>;
 }
 
 pub trait ObjectEq: AsAny {
@@ -59,6 +60,10 @@ pub trait ObjectEq: AsAny {
 
 impl<T: Any> AsAny for T {
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_rc(self: Rc<Self>) -> Rc<dyn Any> {
         self
     }
 }

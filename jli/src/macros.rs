@@ -20,6 +20,7 @@ macro_rules! ast {
             }
 
             impl $s {
+                #[allow(unused)]
                 pub fn boxed($($f: $t,)*) -> Box<Self> {
                     Box::new(Self::new($($f,)*))
                 }

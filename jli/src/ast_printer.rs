@@ -1,5 +1,6 @@
 use crate::expr::{
-    Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Visitor, VisitorResult,
+    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+    Visitor, VisitorResult,
 };
 use crate::token::{Token, TokenType};
 use std::rc::Rc;
@@ -19,6 +20,10 @@ impl Visitor<VisitorResult> for AstPrinter {
         todo!();
     }
 
+    fn visit_get_expr(&mut self, _expr: &Get) -> VisitorResult {
+        todo!();
+    }
+
     fn visit_grouping_expr(&mut self, expr: &Grouping) -> VisitorResult {
         self.parenthesize("group", &[&*expr.expression])
     }
@@ -28,6 +33,14 @@ impl Visitor<VisitorResult> for AstPrinter {
     }
 
     fn visit_logical_expr(&mut self, _expr: &Logical) -> VisitorResult {
+        todo!();
+    }
+
+    fn visit_set_expr(&mut self, _expr: &Set) -> VisitorResult {
+        todo!();
+    }
+
+    fn visit_this_expr(&mut self, _expr: &This) -> VisitorResult {
         todo!();
     }
 
