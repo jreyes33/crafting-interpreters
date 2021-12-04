@@ -5,6 +5,7 @@ use crate::Result;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
+use std::ptr;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -48,8 +49,8 @@ impl Instance {
 impl Object for Instance {}
 
 impl PartialEq for Instance {
-    fn eq(&self, _other: &Self) -> bool {
-        false
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(self, other)
     }
 }
 
