@@ -1,0 +1,75 @@
+class Node {
+  init(value) {
+    this.value = value;
+    this.next = nil;
+  }
+}
+
+class CircularLinkedList {
+  init() {
+    this.head = nil;
+    this.tail = nil;
+  }
+
+  isEmpty() {
+    return !this.head;
+  }
+
+  // TODO: addAt, remove, removeAt, clear, size, set
+  add(value) {
+    var node = Node(value);
+    if (!this.head) {
+      this.head = node;
+    } else {
+      this.tail.next = node;
+    }
+    this.tail = node;
+    this.tail.next = this.head;
+    return true;
+  }
+
+  get(index) {
+    var current = this.head;
+    if (this.isEmpty() or index < 0) return nil;
+    for (var i = index; i > 0; i = i - 1) {
+      current = current.next;
+    }
+    return current;
+  }
+
+  contains(value) {
+    var current = this.head;
+    if (this.isEmpty()) return false;
+    while (true) {
+      if (current.value == value) return true;
+      current = current.next;
+      if (current == this.head) return false;
+    }
+  }
+}
+
+var list = CircularLinkedList();
+print "isEmpty() on empty list:";
+print list.isEmpty();
+print "get(6) on empty list:";
+print list.get(6);
+list.add(0);
+list.add(1);
+list.add(1);
+list.add(2);
+list.add(3);
+list.add(5);
+list.add(8);
+list.add(13);
+print "isEmpty() on full list:";
+print list.isEmpty();
+print "contains(3):";
+print list.contains(3);
+print "contains(4):";
+print list.contains(4);
+print "get(6):";
+print list.get(9).value;
+print "get(11) wrapping:";
+print list.get(11).value;
+print "get(-4):";
+print list.get(-4);
