@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::expr::{
-    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, Super, This, Unary, Variable,
 };
 use crate::object::Nil;
 use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
@@ -53,13 +53,19 @@ impl<'p> Parser<'p> {
 
     fn class_declaration(&mut self) -> StmtResult {
         let name = self.consume(&Identifier(Default::default()), "Expect class name.")?;
+        let superclass = if self.matches(&[Less]) {
+            self.consume(&Identifier(Default::default()), "Expect superclass name.")?;
+            Some(Variable::new(self.previous()))
+        } else {
+            None
+        };
         self.consume(&LeftBrace, "Expect '{' before class body.")?;
         let mut methods = vec![];
         while !self.check(&RightBrace) && !self.is_at_end() {
             methods.push(Rc::new(self.function("method")?));
         }
         self.consume(&RightBrace, "Expect '}' after class body.")?;
-        Ok(Class::boxed(name, methods))
+        Ok(Class::boxed(name, superclass, methods))
     }
 
     fn statement(&mut self) -> StmtResult {
@@ -342,6 +348,14 @@ impl<'p> Parser<'p> {
                 LoxString(s) => Ok(Literal::boxed(Rc::new(s))),
                 _ => Err("not a number or string".into()),
             }
+        } else if self.matches(&[Super]) {
+            let keyword = self.previous();
+            self.consume(&Dot, "Expect '.' after 'super'.")?;
+            let method = self.consume(
+                &Identifier(Default::default()),
+                "Expect superclass method name.",
+            )?;
+            Ok(Super::boxed(keyword, method))
         } else if self.matches(&[This]) {
             Ok(This::boxed(self.previous()))
         } else if self.matches(&[Identifier(Default::default())]) {

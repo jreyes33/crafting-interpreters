@@ -9,16 +9,31 @@ use std::rc::Rc;
 #[derive(Debug, PartialEq)]
 pub struct Class {
     pub name: String,
+    superclass: Option<Rc<Class>>,
     methods: HashMap<String, Rc<LoxFunction>>,
 }
 
 impl Class {
-    pub fn new(name: String, methods: HashMap<String, Rc<LoxFunction>>) -> Self {
-        Self { name, methods }
+    pub fn new(
+        name: String,
+        superclass: Option<Rc<Class>>,
+        methods: HashMap<String, Rc<LoxFunction>>,
+    ) -> Self {
+        Self {
+            name,
+            superclass,
+            methods,
+        }
     }
 
     pub fn find_method<S: AsRef<str>>(&self, name: S) -> Option<Rc<LoxFunction>> {
-        self.methods.get(name.as_ref()).cloned()
+        let name_ref = name.as_ref();
+        if self.methods.contains_key(name_ref) {
+            return self.methods.get(name_ref).cloned();
+        } else if let Some(sc) = &self.superclass {
+            return sc.find_method(name);
+        }
+        None
     }
 }
 

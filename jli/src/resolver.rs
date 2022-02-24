@@ -1,5 +1,6 @@
 use crate::expr::{
-    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, Super, This, Unary,
+    Variable,
 };
 use crate::interpreter::Interpreter;
 use crate::object::Nil;
@@ -31,6 +32,7 @@ enum FunctionType {
 enum ClassType {
     None,
     Class,
+    Subclass,
 }
 
 impl Resolver {
@@ -159,6 +161,16 @@ impl expr::Visitor<expr::VisitorResult> for Resolver {
         Ok(self.nil.clone())
     }
 
+    fn visit_super_expr(&mut self, expr: &Super) -> expr::VisitorResult {
+        match self.current_class {
+            ClassType::None => return Err("Can't use 'super' outside of a class.".into()),
+            ClassType::Subclass => (),
+            _ => return Err("Can't use 'super' in a class with no superclass.".into()),
+        }
+        self.resolve_local(expr, &expr.keyword);
+        Ok(self.nil.clone())
+    }
+
     fn visit_this_expr(&mut self, expr: &This) -> expr::VisitorResult {
         if let ClassType::None = self.current_class {
             return Err("Can't use 'this' outside of a class.".into());
@@ -196,6 +208,18 @@ impl stmt::Visitor<stmt::VisitorResult> for Resolver {
         self.current_class = ClassType::Class;
         self.declare(&stmt.name)?;
         self.define(&stmt.name);
+        if let Some(superclass) = &stmt.superclass {
+            self.current_class = ClassType::Subclass;
+            if stmt.name.lexeme == superclass.name.lexeme {
+                return Err("A class can't inherit from itself.".into());
+            }
+            self.resolve_expr(superclass)?;
+            self.begin_scope();
+            self.scopes
+                .last_mut()
+                .expect("Just added a scope")
+                .insert("super".into(), true);
+        }
         self.begin_scope();
         self.scopes
             .last_mut()
@@ -210,6 +234,9 @@ impl stmt::Visitor<stmt::VisitorResult> for Resolver {
             self.resolve_function(method, declaration)?;
         }
         self.end_scope();
+        if stmt.superclass.is_some() {
+            self.end_scope();
+        }
         self.current_class = enclosing_class;
         Ok(())
     }

@@ -3,7 +3,8 @@ use crate::class::Class as LoxClass;
 use crate::environment::Environment;
 use crate::error::Error;
 use crate::expr::{
-    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+    self, Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, Super, This, Unary,
+    Variable,
 };
 use crate::instance::{Instance, InstanceGet};
 use crate::object::{Nil, Object};
@@ -193,6 +194,25 @@ impl expr::Visitor<expr::VisitorResult> for Interpreter {
         }
     }
 
+    fn visit_super_expr(&mut self, expr: &Super) -> expr::VisitorResult {
+        let expr_ptr = expr as *const dyn Expr as *const () as usize;
+        // ugh.
+        if let Some(distance) = self.locals.get(&expr_ptr) {
+            let var = self.environment.get_at(*distance, "super")?;
+            if let Ok(superclass) = Rc::downcast::<LoxClass>(var.as_any_rc()) {
+                let var = self.environment.get_at(*distance - 1, "this")?;
+                if let Ok(object) = Rc::downcast::<Instance>(var.as_any_rc()) {
+                    if let Some(method) = superclass.find_method(&expr.method.lexeme) {
+                        return Ok(Rc::new(method.bind(object)));
+                    } else {
+                        return Err(format!("Undefined property '{}'.", expr.method.lexeme).into());
+                    }
+                }
+            }
+        }
+        Err("super not found in locals.".into())
+    }
+
     fn visit_this_expr(&mut self, expr: &This) -> expr::VisitorResult {
         self.look_up_variable(&expr.keyword, expr)
     }
@@ -221,7 +241,21 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
     }
 
     fn visit_class_stmt(&mut self, stmt: &Class) -> stmt::VisitorResult {
+        let superclass = if let Some(var) = &stmt.superclass {
+            let evaluated = self.evaluate(var)?;
+            if let Ok(sc) = Rc::downcast::<LoxClass>(evaluated.as_any_rc()) {
+                Some(sc)
+            } else {
+                return Err(format!("Superclass ({}) must be a class.", var.name.lexeme).into());
+            }
+        } else {
+            None
+        };
         self.environment.define(&stmt.name.lexeme, Rc::new(Nil));
+        if let Some(sc) = &superclass {
+            self.environment = Rc::new(Environment::new_with_enclosing(self.environment.clone()));
+            self.environment.define("super", sc.clone());
+        }
         let mut methods = HashMap::new();
         for method in &stmt.methods {
             let function = LoxFunction::new(
@@ -231,7 +265,10 @@ impl stmt::Visitor<stmt::VisitorResult> for Interpreter {
             );
             methods.insert(method.name.lexeme.clone(), Rc::new(function));
         }
-        let class = LoxClass::new(stmt.name.lexeme.clone(), methods);
+        let class = LoxClass::new(stmt.name.lexeme.clone(), superclass.clone(), methods);
+        if superclass.is_some() {
+            self.environment = self.environment.enclosing.clone().expect("No ancestor");
+        }
         self.environment.assign(&stmt.name, Rc::new(class))?;
         Ok(())
     }

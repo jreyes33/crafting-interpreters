@@ -19,3 +19,18 @@ ditto.name = "Ditto";
 ditto.sayName(); // "Ditto"
 ditto.sayName = charmander.sayName;
 ditto.sayName(); // "Charmander"
+
+class Subclassmon < Pokemon {
+  sayName() {
+    print "I'm a subclassmon called:";
+    super.sayName();
+  }
+
+  sayBye() {
+    print "Bye!";
+  }
+}
+
+var subclassmon = Subclassmon();
+subclassmon.sayName();
+subclassmon.sayBye();

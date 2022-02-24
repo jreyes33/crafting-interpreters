@@ -1,5 +1,5 @@
 use crate::expr::{
-    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, This, Unary, Variable,
+    Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Set, Super, This, Unary, Variable,
     Visitor, VisitorResult,
 };
 use crate::token::{Token, TokenType};
@@ -37,6 +37,10 @@ impl Visitor<VisitorResult> for AstPrinter {
     }
 
     fn visit_set_expr(&mut self, _expr: &Set) -> VisitorResult {
+        todo!();
+    }
+
+    fn visit_super_expr(&mut self, _expr: &Super) -> VisitorResult {
         todo!();
     }
 

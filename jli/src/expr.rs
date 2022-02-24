@@ -15,6 +15,7 @@ ast!(Expr -> VisitorResult [
     Literal(value: Rc<dyn Object>),
     Logical(left: Box<dyn Expr>, operator: Token, right: Box<dyn Expr>),
     Set(object: Rc<dyn Expr>, name: Token, value: Box<dyn Expr>),
+    Super(keyword: Token, method: Token),
     This(keyword: Token),
     Unary(operator: Token, right: Box<dyn Expr>),
     Variable(name: Token),
